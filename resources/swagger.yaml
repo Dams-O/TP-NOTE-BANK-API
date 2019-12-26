@@ -1,0 +1,235 @@
+swagger: "2.0"
+info:
+  description: "Documentation du projet de tp noté banciare dans le cadre du module de Web Services. \n A l'occasion de cet exercice, j'utilise swagger pour la première fois. Cet outil me permet de créer la documentation ici présente. \n J'ai essayé de générer du code serveur lumen avec ce document, mais je n'était pas du tout statisfait du résultat, pour la partie plus pratique, j'ai réutilisé un tp précédant et l'ai adapté et enrichi pour celui-ci. \n Le virement entre deux comptes de banque différentes ne fonctionnent"
+  version: "1.0.0-alpha"
+  title: "TP noté API Bancaire Rabellino"
+  contact:
+    email: "damien.rabellino@ynov.com"
+host: "banque.rabellino.com"
+basePath: "/"
+tags:
+- name: "UserAPI"
+  description: "Les routes relatives au UserAccount"
+schemes:
+- "http"
+paths:
+  /registerUserAccount:
+    post:
+      tags:
+      - "user"
+      summary: "Création de compte utilisateur"
+      description: "Création d'un nouveau compte en banque. Action libre, non contrainte a un middleware"
+      operationId: "createUserAccount"
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "L'object de type UserAccount créé (On retrouve tout les attributs de la classe UserAccount)"
+        required: true
+        schema:
+          $ref: "#/definitions/UserAccount"
+      responses:
+        default:
+          description: "Le nouveau compte en banque a été créé avec succès"
+        400:
+          description: "Erreur lors de la création de compte, données manquantes"
+  /login:
+    get:
+      tags:
+      - "user"
+      summary: "Connexion utilisateur"
+      description: "Se connecter pour obtenir son token et accèder au ressource du compte en question. Action libre, non contrainte a un middleware"
+      operationId: "loginUser"
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters:
+      - name: "id_account"
+        in: "query"
+        description: "Le numéro de compte auquel on veut accèder"
+        required: true
+        type: "string"
+      - name: "password"
+        in: "query"
+        description: "Le code pin associé au compte"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "L'utilisateur s'est connecter avec succès. On va ici retourner le token."
+          schema:
+            type: "string"
+          headers:
+            X-Expires-After:
+              type: "string"
+              format: "date-time"
+              description: "Date à laquelle le token va expirer"
+        400:
+          description: "Numéro de compte inconnu ou mauvais numéro de compte/mot de passe"
+  /logout:
+    get:
+      tags:
+      - "user"
+      summary: "Déconnexion de l'utilisateur. son token (JWT) doit être mis hors service ici."
+      description: "Route permettant de fermer une session."
+      operationId: "logoutUser"
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters: []
+      responses:
+        default:
+          description: "L'utilisateur s'est déconnecté avec succès."
+  /seeAccount:
+    get:
+      tags:
+      - "user"
+      summary: "Retourne les informations d'un compte utilisateur"
+      description: "Retourne les informations d'un compte utilisateur. L'utilisateur doit être loggé pour accèder à cette ressource (middleware d'authentification)"
+      operationId: "seeAccount"
+      produces:
+      - "application/xml"
+      - "application/json"
+      responses:
+        200:
+          description: "Oppération réussi. Retourne les information du compte"
+          schema:
+            $ref: "#/definitions/UserAccount"
+        400:
+          description: "Accès refusé."
+        500:
+          description: "Erreur serveur."
+  /addOrWithdrawMoney:
+    put:
+      tags:
+      - "user"
+      summary: "Action de dêpot ou retrait d'argent"
+      description: "Action de dêpot ou retrait d'argent. Attention s'il s'agit d'un retrait il ne peut pas permettre un solde négatif. L'utilisateur doit être loggé pour accèder à cette ressource (middleware d'authentification)"
+      operationId: "addOrWithdrawMoney"
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters:
+      - name: "amount"
+        in: "body"
+        description: "La valeur d'argent que l'on souhaite retirer ou déposer."
+        required: true
+        schema:
+          $ref: "#/definitions/Amount"
+      responses:
+        200:
+          description: "Transaction effectué avec succès."
+        400:
+          description: "Accès refusé."
+        500:
+          description: "Erreur serveur."
+  /intraTransfert:
+    put:
+      tags:
+      - "user"
+      summary: "Virement entre deux comptes de la même banque."
+      description: "Virement entre deux comptes de la même banque. Le débitaire doit toujours terminer la transaction avec un solde positif. L'utilisateur doit être loggé pour accèder à cette ressource (middleware d'authentification)"
+      operationId: "intraTransfert"
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters:
+      - name: "transfer"
+        in: "body"
+        description: "La valeur d'argent que l'on souhaite envoyer et a quel destinataire. l'éméteur est déjà compris dans le token."
+        required: true
+        schema:
+          $ref: "#/definitions/Transfert"
+      responses:
+        200:
+          description: "Transaction effectué avec succès."
+        400:
+          description: "Accès refusé."
+        404:
+          description: "Compte destinataire introuvable."
+        500:
+          description: "Erreur serveur."
+
+  /externalTransfert:
+    put:
+      tags:
+      - "user"
+      summary: "Virement entre deux comptes de banques différentes."
+      description: "Virement entre deux comptes de banques différentes. La différence ici avec l'intraTransfert c'est que le header change, et que nous n'enverons pas un bearer token, mais un Bankid avec l'identifiant de 5 chiffres de la banque externe. Le débitaire doit toujours terminer la transaction avec un solde positif. L'utilisateur doit être loggé pour accèder à cette ressource (middleware d'authentification)"
+      operationId: "externalTransfert"
+      produces:
+      - "application/xml"
+      - "application/json"
+      parameters:
+      - name: "transfer"
+        in: "body"
+        description: "La valeur d'argent que l'on souhaite envoyer et a quel destinataire. l'éméteur est déjà compris dans le token."
+        required: true
+        schema:
+          $ref: "#/definitions/Transfert"
+      responses:
+        200:
+          description: "Transaction effectué avec succès."
+        400:
+          description: "Accès refusé."
+        404:
+          description: "Compte destinataire introuvable."
+        500:
+          description: "Erreur serveur."
+securityDefinitions:
+  Authorization:
+    type: "basic"
+definitions:
+  UserAccount:
+    type: "object"
+    properties:
+      id_account:
+        type: "string"
+        description: "Clé unique de numéro de compte composé du numéro de la banque (5 chiffres) suivi du numéro de compte (7 chiffres et une lettre)"
+      firstName:
+        type: "string"
+        description: "Prénom du titulaire du compte"
+      lastName:
+        type: "string"
+        description: "Nom du titulaire du compte"
+      birthday:
+        type: "string"
+        description: "Date de naissance du propriétaire du compte"
+      address:
+        type: "string"
+        description: "Adresse de résidence de la personne"
+      civility:
+        type: "string"
+        description: "Civilité du propriétaire du compte"
+      password:
+        type: "string"
+        description: "Mot de passe hashé en bcrypt (standard Lumen) qui correspond au code pin."
+      money:
+        type: "integer"
+        format: "int32"
+        description: "Valeur de l'argent disponnible sur le compte, en euros"
+    xml:
+      name: "UserAccount"
+  Amount:
+    type: "integer"
+    properties:
+      amount:
+        type: "integer"
+        format: "int32"
+        description: "Valeur d'argent d'une transaction, en euros"
+    xml:
+      name: "Amount"
+  Transfert:
+    type: "object"
+    properties:
+      destAccount:
+        type: "string"
+        description: "Compte vers le compte l'on souhaite effectuer la transaction"
+      amount:
+        type: "integer"
+        format: "int32"
+        description: "Valeur d'argent d'une transaction, en euros"
+    xml:
+      name: "Transfert"
